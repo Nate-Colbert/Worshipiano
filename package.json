@@ -1,0 +1,9 @@
+{
+  "name": "piano-chord-helper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node test/test.mjs",
+    "serve": "npx serve docs"
+  }
+}

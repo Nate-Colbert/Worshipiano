@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piano Chord Helper</title>
+<style>
+  :root {
+    --bg:#faf8f5; --card:#fff; --ink:#1e1b18; --muted:#6b645c; --line:#e4ded5;
+    --accent:#3b6fd4; --bass:#e07b1f; --key:#fff; --blackkey:#25211d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#17150f; --card:#201d17; --ink:#f1ece4; --muted:#a39b8f; --line:#38332a; --accent:#6c9bff; --bass:#ffa24d; --key:#e9e4da; --blackkey:#0c0b09; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,Segoe UI,sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.05rem; margin: 28px 0 10px; }
+  p.sub { margin:0 0 16px; color:var(--muted); }
+  form { display:flex; gap:8px; flex-wrap:wrap; }
+  input[type=url] { flex:1 1 320px; padding:10px 12px; font-size:1rem; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); }
+  button, select { font:inherit; padding:10px 14px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); cursor:pointer; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  button:disabled { opacity:.6; cursor:wait; }
+  #status { margin:12px 0; color:var(--muted); min-height:1.4em; }
+  #status.err { color:#c0392b; }
+  .meta { display:flex; flex-wrap:wrap; gap:10px 18px; align-items:center; margin-top:18px; }
+  .meta .title { font-size:1.3rem; font-weight:700; }
+  .meta .small { color:var(--muted); }
+  .transpose { display:flex; gap:6px; align-items:center; margin-left:auto; }
+  .transpose button { padding:8px 12px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)); gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .card .top { display:flex; align-items:baseline; justify-content:space-between; gap:8px; }
+  .card .name { font-size:1.35rem; font-weight:700; }
+  .card .notes { font-size:1.05rem; letter-spacing:.06em; margin:2px 0 8px; }
+  .card .hint { color:var(--muted); font-size:.82rem; }
+  .card svg { width:100%; height:auto; display:block; }
+  .play { padding:5px 10px; font-size:.85rem; }
+  .legend { color:var(--muted); font-size:.85rem; margin:6px 0 0; }
+  .dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin:0 4px 0 8px; vertical-align:middle; }
+  .section { margin:0 0 18px; }
+  .section .sname { font-weight:700; margin-bottom:6px; padding-bottom:3px; border-bottom:1px solid var(--line); }
+  .bars { font-family: ui-monospace, Menlo, Consolas, monospace; margin:4px 0; display:flex; flex-wrap:wrap; gap:2px 10px; align-items:flex-start; }
+  .ln { display:flex; flex-wrap:wrap; align-items:flex-end; margin-bottom:10px; }
+  .seg { display:flex; flex-direction:column; }
+  .ch { color:var(--accent); font-weight:700; cursor:pointer; padding-right:.5em; min-height:1.3em; line-height:1.2; white-space:nowrap; }
+  .ch:hover { text-decoration:underline; }
+  .cn { display:none; color:var(--muted); font-weight:400; font-size:.68rem; letter-spacing:.04em; }
+  .shownotes .cn { display:block; }
+  .tx { white-space:pre; }
+  .opt { display:inline-flex; gap:6px; align-items:center; color:var(--muted); font-size:.9rem; margin-left:12px; }
+  details { margin-top:26px; color:var(--muted); }
+  details textarea { width:100%; min-height:140px; margin:8px 0; padding:10px; border:1px solid var(--line); border-radius:8px; background:var(--card); color:var(--ink); font:inherit; }
+  [hidden] { display:none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Piano Chord Helper</h1>
+  <p class="sub">Paste a worshiptogether.com song link and see every chord as piano notes.</p>
+
+  <form id="form">
+    <input id="url" type="url" required placeholder="https://www.worshiptogether.com/songs/nothing-else-cody-carnes/"
+           value="https://www.worshiptogether.com/songs/nothing-else-cody-carnes/">
+    <button class="primary" id="go">Get chords</button>
+  </form>
+  <div id="status"></div>
+
+  <div id="result" hidden>
+    <div class="meta">
+      <div>
+        <div class="title" id="title"></div>
+        <div class="small" id="sub"></div>
+      </div>
+      <div class="transpose">
+        <label for="key" class="small">Key</label>
+        <button type="button" id="down" title="Down a semitone">−</button>
+        <select id="key"></select>
+        <button type="button" id="up" title="Up a semitone">+</button>
+      </div>
+    </div>
+
+    <h2>Chords in this song</h2>
+    <div class="grid" id="chords"></div>
+    <p class="legend">Right hand <span class="dot" style="background:var(--accent)"></span>blue &nbsp; Left hand bass <span class="dot" style="background:var(--bass)"></span>orange &nbsp; Tap a chord to hear it.</p>
+
+    <h2>Chart <label class="opt"><input type="checkbox" id="shownotes"> Show piano notes above lyrics</label></h2>
+    <div id="sections"></div>
+  </div>
+
+  <details id="paste">
+    <summary>Site not loading? Paste the page text instead</summary>
+    <p>Open the song page, select everything (Ctrl/Cmd-A), copy, and paste below.</p>
+    <textarea id="pasted" placeholder="Paste the page text here"></textarea>
+    <button type="button" id="parsePaste">Convert pasted text</button>
+  </details>
+</main>
+
+<script type="module">
+import { FUNCTION_URL } from './config.js';
+import { parseSongPage } from './parse.js';
+import { chordNotes, transposeName, keyPc, KEYS } from './chord.js';
+
+const $ = (id) => document.getElementById(id);
+const status = (msg, err = false) => { $('status').textContent = msg; $('status').className = err ? 'err' : ''; };
+
+let song = null;
+let origKey = 'C';
+let semis = 0; // transpose amount
+const FLATS = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
+
+KEYS.forEach((k) => { const o = document.createElement('option'); o.value = k; o.textContent = k; $('key').append(o); });
+
+$('form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  $('go').disabled = true;
+  status('Fetching song…');
+  try {
+    const res = await fetch(FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: $('url').value.trim() }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+    load(data.html);
+  } catch (err) {
+    status(err.message + ' — you can also use the paste option below.', true);
+  } finally {
+    $('go').disabled = false;
+  }
+});
+
+$('parsePaste').addEventListener('click', () => load($('pasted').value));
+
+function load(raw) {
+  const parsed = parseSongPage(raw);
+  if (!parsed.uniqueChords.length) {
+    status("Couldn't find a chord chart on that page.", true);
+    return;
+  }
+  song = parsed;
+  origKey = normalizeKey(parsed.originalKey) || guessKey(parsed.uniqueChords[0]);
+  semis = 0;
+  $('key').value = origKey;
+  status('');
+  render();
+}
+
+const normalizeKey = (k) => (k && KEYS.includes(k) ? k : k && KEYS.find((x) => keyPc(x) === keyPc(k)) || null);
+const guessKey = (chord) => { const m = /^[A-G][#b]?/.exec(chord)[0]; return normalizeKey(m) || 'C'; };
+const currentKey = () => KEYS.find((k) => keyPc(k) === (keyPc(origKey) + semis + 120) % 12) || origKey;
+
+$('key').addEventListener('change', () => { semis = (keyPc($('key').value) - keyPc(origKey) + 12) % 12; render(); });
+$('shownotes').addEventListener('change', () => $('sections').classList.toggle('shownotes', $('shownotes').checked));
+$('up').addEventListener('click', () => { semis = (semis + 1) % 12; render(); });
+$('down').addEventListener('click', () => { semis = (semis + 11) % 12; render(); });
+
+function tp(name) { return transposeName(name, semis, currentKey()); }
+
+function render() {
+  $('result').hidden = false;
+  $('key').value = currentKey();
+  $('title').textContent = song.title || 'Song';
+  $('sub').textContent = [song.artist, song.bpm && `${song.bpm} BPM`, `Original key ${origKey}`].filter(Boolean).join(' · ');
+
+  const chordsEl = $('chords');
+  chordsEl.replaceChildren();
+  const seen = new Map();
+  for (const c of song.uniqueChords) {
+    const name = tp(c);
+    const info = chordNotes(name);
+    seen.set(c, info);
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (!info) { card.innerHTML = `<div class="name">${esc(name)}</div><div class="hint">Couldn't interpret this chord.</div>`; chordsEl.append(card); continue; }
+    card.innerHTML = `
+      <div class="top"><div class="name">${esc(name)}</div><button class="play" type="button">▶ Play</button></div>
+      <div class="notes">${info.notes.map(esc).join(' &nbsp;')}</div>
+      ${info.bassName !== info.rh[0].name ? `<div class="hint">Bass note: ${esc(info.bassName)}</div>` : ''}
+      ${keyboard(info)}`;
+    card.addEventListener('click', () => play(info));
+    chordsEl.append(card);
+  }
+
+  const secEl = $('sections');
+  secEl.replaceChildren();
+  const chordEl = (c) => {
+    const info = seen.get(c);
+    return `<div class="ch" data-chord="${esc(c)}" title="${info ? esc(info.notes.join(' ')) : ''}">${esc(tp(c))}${info ? `<div class="cn">${info.notes.map(esc).join(' ')}</div>` : ''}</div>`;
+  };
+  for (const s of song.sections) {
+    const div = document.createElement('div');
+    div.className = 'section';
+    let h = `<div class="sname">${esc(s.name)}</div>`;
+    for (const bar of s.bars) {
+      h += `<div class="bars">${bar.map((t) => (t.chord ? chordEl(t.chord) : `<span>${esc(t.text)}</span>`)).join('')}</div>`;
+    }
+    for (const ln of s.lines) {
+      h += `<div class="ln">${ln.map((seg) => `<div class="seg">${seg.chord ? chordEl(seg.chord) : '<div class="ch">&nbsp;</div>'}<div class="tx">${esc(seg.text) || '&nbsp;'}</div></div>`).join('')}</div>`;
+    }
+    div.innerHTML = h;
+    secEl.append(div);
+  }
+  secEl.classList.toggle('shownotes', $('shownotes').checked);
+  secEl.onclick = (e) => {
+    const el = e.target.closest('[data-chord]');
+    const info = el && seen.get(el.dataset.chord);
+    if (info) play(info);
+  };
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+// ---- keyboard drawing: C3 (48) .. B5 (83)
+function keyboard(info) {
+  const W = 20, H = 96, BW = 12, BH = 58, LO = 48, HI = 83;
+  const rh = new Map(info.rh.map((n) => [n.midi, n.name]));
+  const lh = new Map([[info.lh.midi, info.lh.name]]);
+  const whitePcs = [0, 2, 4, 5, 7, 9, 11];
+  let whites = '', blacks = '', labels = '';
+  let wi = 0;
+  const wx = {};
+  for (let m = LO; m <= HI; m++) {
+    const pc = m % 12;
+    if (whitePcs.includes(pc)) {
+      wx[m] = wi * W;
+      const hit = lh.has(m) ? 'var(--bass)' : rh.has(m) ? 'var(--accent)' : 'var(--key)';
+      whites += `<rect x="${wi * W}" y="0" width="${W}" height="${H}" fill="${hit}" stroke="#8884" />`;
+      const nm = lh.get(m) || rh.get(m);
+      if (nm) labels += `<text x="${wi * W + W / 2}" y="${H - 8}" text-anchor="middle" font-size="9" fill="#fff" font-weight="700">${nm}</text>`;
+      wi++;
+    }
+  }
+  for (let m = LO; m <= HI; m++) {
+    const pc = m % 12;
+    if (![1, 3, 6, 8, 10].includes(pc)) continue;
+    const x = wx[m - 1] + W - BW / 2;
+    const hit = lh.has(m) ? 'var(--bass)' : rh.has(m) ? 'var(--accent)' : 'var(--blackkey)';
+    blacks += `<rect x="${x}" y="0" width="${BW}" height="${BH}" rx="2" fill="${hit}" stroke="#0006"/>`;
+    const nm = lh.get(m) || rh.get(m);
+    if (nm) labels += `<text x="${x + BW / 2}" y="${BH - 6}" text-anchor="middle" font-size="7" fill="#fff" font-weight="700">${nm}</text>`;
+  }
+  return `<svg viewBox="0 0 ${wi * W} ${H}" role="img" aria-label="Piano keys for ${esc(info.name)}">${whites}${blacks}${labels}</svg>`;
+}
+
+// ---- sound
+let ctx;
+function play(info) {
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  const t = ctx.currentTime;
+  [info.lh, ...info.rh].forEach((n) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle';
+    o.frequency.value = 440 * Math.pow(2, (n.midi - 69) / 12);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.18, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 1.4);
+    o.connect(g).connect(ctx.destination);
+    o.start(t); o.stop(t + 1.5);
+  });
+}
+</script>
+</body>
+</html>
